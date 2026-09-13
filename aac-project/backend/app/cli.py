@@ -17,7 +17,7 @@ import csv
 import json
 from datetime import datetime
 
-from app.core.database import async_session_maker
+from app.core.database import async_session_maker, close_db
 from app.models.job import Job
 from app.models.account import Account
 from app.workers.tasks import create_accounts_task
@@ -35,6 +35,13 @@ async def _ensure_cli_user_id(db: AsyncSession):
     service = AccountService(db)
     user = await service.ensure_cli_user()
     return user.id
+
+
+async def _run_and_close(coro):
+    try:
+        return await coro
+    finally:
+        await close_db()
 
 
 @cli.command()
@@ -94,7 +101,7 @@ def create(platform, count, proxy_provider, sms_provider, captcha_provider):
             
             return job.id
     
-    job_id = asyncio.run(_create())
+    job_id = asyncio.run(_run_and_close(_create()))
     click.echo(f"\n✅ Job {job_id} created successfully!")
     click.echo(f"Check status with: python -m app.cli status --job-id {job_id}")
 
@@ -133,7 +140,7 @@ def status(job_id):
                 click.echo(f"Finished: {job.finished_at}")
             click.echo("="*60 + "\n")
     
-    asyncio.run(_status())
+    asyncio.run(_run_and_close(_status()))
 
 
 @cli.command()
@@ -198,7 +205,7 @@ def export(platform, job_id, format, output):
             
             click.echo(f"\n✅ Exported {len(exported_data)} accounts to {output}")
     
-    asyncio.run(_export())
+    asyncio.run(_run_and_close(_export()))
 
 
 @cli.command()
@@ -236,7 +243,7 @@ def list_jobs():
             
             click.echo("="*100 + "\n")
     
-    asyncio.run(_list())
+    asyncio.run(_run_and_close(_list()))
 
 
 @cli.command()
@@ -274,7 +281,7 @@ def cancel(job_id):
             
             click.echo(f"✅ Job {job_id} cancelled successfully")
     
-    asyncio.run(_cancel())
+    asyncio.run(_run_and_close(_cancel()))
 
 
 @cli.command()
@@ -336,7 +343,7 @@ def stats():
             click.echo(f"\nTotal Jobs: {total_jobs}")
             click.echo("="*60 + "\n")
     
-    asyncio.run(_stats())
+    asyncio.run(_run_and_close(_stats()))
 
 
 @cli.command()
@@ -357,7 +364,7 @@ def init_db():
 
         click.echo("✅ Database initialized successfully")
 
-    asyncio.run(_init())
+    asyncio.run(_run_and_close(_init()))
 
 
 if __name__ == '__main__':
