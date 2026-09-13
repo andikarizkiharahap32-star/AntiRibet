@@ -69,10 +69,10 @@ def create(platform, count, proxy_provider, sms_provider, captcha_provider):
                 total_count=count,
                 status="pending",
                 proxy_provider=proxy_provider,
-
+                sms_provider=sms_provider,
                 captcha_provider=captcha_provider
             )
-            
+
             db.add(job)
             await db.commit()
             await db.refresh(job)
