@@ -15,7 +15,7 @@ from sqlalchemy import select
 import uuid
 import csv
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.database import async_session_maker, close_db
 from app.models.job import Job
@@ -276,7 +276,7 @@ def cancel(job_id):
             
             # Update job status
             job.status = "cancelled"
-            job.finished_at = datetime.utcnow()
+            job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
             await db.commit()
             
             click.echo(f"✅ Job {job_id} cancelled successfully")
