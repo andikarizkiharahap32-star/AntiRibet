@@ -1,15 +1,12 @@
 from celery import Celery
+
 from app.core.config import settings
 
 celery_app = Celery(
     "aac_worker",
     broker=settings.REDIS_CELERY_BROKER,
     backend=settings.REDIS_CELERY_BACKEND,
-    include=[
-        "app.workers.tasks.discord_tasks",
-        "app.workers.tasks.gmail_tasks",
-        "app.workers.tasks.maintenance_tasks",
-    ]
+    include=["app.workers.tasks"],
 )
 
 celery_app.conf.update(
@@ -23,9 +20,9 @@ celery_app.conf.update(
     worker_prefetch_multiplier=settings.CELERY_WORKER_PREFETCH_MULTIPLIER,
     worker_max_tasks_per_child=settings.CELERY_WORKER_MAX_TASKS_PER_CHILD,
     task_routes={
-        "app.workers.tasks.discord_tasks.create_discord_account": {"queue": "high"},
-        "app.workers.tasks.gmail_tasks.create_gmail_account": {"queue": "normal"},
-        "app.workers.tasks.maintenance_tasks.*": {"queue": "low"},
+        "app.workers.tasks.create_accounts_task": {"queue": "normal"},
+        "app.workers.tasks.health_check_proxies_task": {"queue": "low"},
+        "app.workers.tasks.cleanup_old_logs_task": {"queue": "low"},
     },
     task_default_queue="normal",
     task_create_missing_queues=True,
@@ -34,4 +31,4 @@ celery_app.conf.update(
     task_send_sent_event=True,
 )
 
-celery_app.autodiscover_tasks()
+celery_app.autodiscover_tasks(["app.workers"])

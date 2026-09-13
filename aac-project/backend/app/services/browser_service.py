@@ -2,7 +2,7 @@ import asyncio
 import random
 from typing import Optional, Dict, Any, List
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page, Playwright
-from playwright_stealth import stealth_async
+from playwright_stealth import Stealth
 from app.core.config import settings
 import logging
 
@@ -13,6 +13,7 @@ class BrowserService:
     def __init__(self):
         self.playwright: Optional[Playwright] = None
         self.browser: Optional[Browser] = None
+        self.stealth = Stealth()
         self.user_agents = self._load_user_agents()
         self.viewport = {
             "width": settings.BROWSER_VIEWPORT_WIDTH,
@@ -69,7 +70,7 @@ class BrowserService:
             bypass_csp=True,
         )
 
-        await stealth_async(context)
+        await self.stealth.apply_stealth_async(context)
         return context
 
     async def create_page(self, context: BrowserContext) -> Page:
@@ -180,12 +181,12 @@ async def setup_stealth_browser(playwright: Any, proxy_url: str, headless: bool 
             "--disable-setuid-sandbox",
         ]
     }
-    
+
     if proxy_url:
         launch_options["proxy"] = {"server": proxy_url}
-    
+
     browser = await playwright.chromium.launch(**launch_options)
-    
+
     context = await browser.new_context(
         viewport={"width": settings.BROWSER_VIEWPORT_WIDTH, "height": settings.BROWSER_VIEWPORT_HEIGHT},
         user_agent=get_random_user_agent(),
@@ -193,7 +194,8 @@ async def setup_stealth_browser(playwright: Any, proxy_url: str, headless: bool 
         timezone_id="America/New_York",
         ignore_https_errors=True
     )
-    
-    await stealth_async(context)
-    
+
+    stealth = Stealth()
+    await stealth.apply_stealth_async(context)
+
     return context

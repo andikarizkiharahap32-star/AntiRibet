@@ -1,5 +1,5 @@
 import ldap3
-from ldap3 import Server, Connection, ALL, STARTTLS, SUBTREE
+from ldap3 import Server, Connection, ALL, SUBTREE
 from typing import Optional, Dict, Any, List
 from app.core.config import settings
 import logging

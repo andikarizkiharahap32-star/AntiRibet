@@ -1,18 +1,19 @@
 import asyncio
 import random
 from typing import Optional, Dict, Any
-from playwright.async_api import Page
-from app.services.browser_service import BrowserService
-from app.services.captcha_service import CaptchaService
+from playwright.async_api import Page, async_playwright
+from app.services.browser_service import BrowserService, setup_stealth_browser
 from app.services.sms_service import SMSService
+from app.services.captcha_service import solve_recaptcha
 from app.core.config import settings
+
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 class GmailService:
-    def __init__(self, browser: BrowserService, captcha: CaptchaService, sms: SMSService):
+    def __init__(self, browser: BrowserService, captcha, sms: SMSService):
         self.browser = browser
         self.captcha = captcha
         self.sms = sms
@@ -173,10 +174,9 @@ async def create_gmail_account_workflow(
     """
     from playwright.async_api import async_playwright
     from app.services.sms_service import get_sms_number, get_sms_code
-    from app.services.captcha_service import solve_recaptcha
-    from app.services.browser_service import setup_stealth_browser
     from app.services.account_service import AccountService
     from app.models.log import Log
+
     from app.models.account import Account
     from app.core.security import encrypt_password
     
@@ -252,9 +252,10 @@ async def create_gmail_account_workflow(
             # Gmail verification steps would go here
             
             await browser.close()
+            browser = None
             
             # Step 9: Save account
-            logger.info(f"Job {job_id}: Saving Gmail account")
+
             account_service = AccountService(db)
             account = await account_service.create_account(
                 job_id=job_id,

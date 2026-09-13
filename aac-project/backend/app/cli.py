@@ -23,13 +23,18 @@ from app.models.account import Account
 from app.workers.tasks import create_accounts_task
 from app.core.config import settings
 from app.services.account_service import AccountService
-from app.core.security import decrypt_password
 
 
 @click.group()
 def cli():
-    """AAC - AutoAccount Creator CLI"""
+    """AAC - AutoAccountCreator CLI"""
     pass
+
+
+async def _ensure_cli_user_id(db: AsyncSession):
+    service = AccountService(db)
+    user = await service.ensure_cli_user()
+    return user.id
 
 
 @cli.command()
@@ -53,15 +58,18 @@ def create(platform, count, proxy_provider, sms_provider, captcha_provider):
     
     async def _create():
         async with async_session_maker() as db:
+            # Create/reuse system CLI user (required by non-null FK jobs.user_id)
+            cli_user_id = await _ensure_cli_user_id(db)
+
             # Create job
             job = Job(
                 id=uuid.uuid4(),
-                user_id=None,  # CLI user
+                user_id=cli_user_id,
                 type=platform,
                 total_count=count,
                 status="pending",
                 proxy_provider=proxy_provider,
-                sms_provider=sms_provider,
+
                 captcha_provider=captcha_provider
             )
             
@@ -340,13 +348,15 @@ def init_db():
         python -m app.cli init-db
     """
     async def _init():
-        from app.core.database import engine, Base
-        
+        from app.core.database import engine
+        from app.models.base import Base
+        import app.models  # noqa: F401 - ensure all model modules are imported/registered
+
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-        
+
         click.echo("✅ Database initialized successfully")
-    
+
     asyncio.run(_init())
 
 

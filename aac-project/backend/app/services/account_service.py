@@ -4,7 +4,9 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.account import Account
 from app.models.job import Job
-from app.core.security import encrypt_password, decrypt_password
+from app.models.user import User
+from app.core.security import encrypt_password, decrypt_password, get_password_hash
+from app.core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,6 +15,28 @@ logger = logging.getLogger(__name__)
 class AccountService:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def ensure_cli_user(self) -> User:
+        """Ensure a system user exists for CLI-created jobs (non-null FK)."""
+        result = await self.db.execute(
+            select(User).where(User.username == settings.CLI_SYSTEM_USERNAME)
+        )
+        user = result.scalar_one_or_none()
+
+        if user:
+            return user
+
+        user = User(
+            username=settings.CLI_SYSTEM_USERNAME,
+            password_hash=get_password_hash(settings.CLI_SYSTEM_PASSWORD),
+            role=settings.CLI_SYSTEM_ROLE,
+            is_active=True,
+        )
+        self.db.add(user)
+        await self.db.commit()
+        await self.db.refresh(user)
+        logger.info(f"Created CLI system user: {user.username}")
+        return user
 
     async def create_account(
         self,

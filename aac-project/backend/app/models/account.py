@@ -22,6 +22,7 @@ class Account(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     job: Mapped["Job"] = relationship("Job", back_populates="accounts")
+    logs: Mapped[list["Log"]] = relationship("Log", back_populates="account", cascade="all, delete-orphan")
     proxy_usage: Mapped[list["ProxyUsage"]] = relationship("ProxyUsage", back_populates="account", cascade="all, delete-orphan")
 
     __table_args__ = (

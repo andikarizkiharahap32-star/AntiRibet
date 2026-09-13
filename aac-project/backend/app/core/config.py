@@ -1,7 +1,15 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
-from typing import Optional, List
+from __future__ import annotations
+
+import base64
 import secrets
+from typing import Optional
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _gen_fernet_key() -> str:
+    return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
 
 
 class Settings(BaseSettings):
@@ -9,12 +17,12 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
-        extra="ignore"
+        extra="ignore",
     )
 
     # Application
     APP_NAME: str = "AAC - Auto Account Creator"
-    APP_VERSION: str = "1.0.0"
+    APP_VERSION: str = "1.1.0"
     DEBUG: bool = False
     SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     API_V1_PREFIX: str = "/api/v1"
@@ -22,7 +30,15 @@ class Settings(BaseSettings):
     # Server
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    WORKERS: int = 4
+    WORKERS: int = 1
+
+    # CORS (CLI-first default)
+    CORS_ALLOW_ORIGINS: str = "*"
+
+    # CLI system user
+    CLI_SYSTEM_USERNAME: str = "cli-system"
+    CLI_SYSTEM_PASSWORD: str = "cli-system-change-me"
+    CLI_SYSTEM_ROLE: str = "admin"
 
     # Database
     DATABASE_URL: str = "postgresql://aac_user:aac_password@localhost:5432/aac_db"
@@ -46,10 +62,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_HOURS: int = 8
-    JWT_SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    JWT_SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(48))
 
     # LDAP/SSO
-    LDAP_ENABLED: bool = True
+    LDAP_ENABLED: bool = False
     LDAP_SERVER: str = "ldap://ldap-server:389"
     LDAP_BIND_DN: str = "cn=admin,dc=company,dc=com"
     LDAP_BIND_PASSWORD: str = "ldap-password"
@@ -67,8 +83,8 @@ class Settings(BaseSettings):
     SESSION_COOKIE_SAMESITE: str = "lax"
 
     # Encryption (Fernet - AES-256)
-    FERNET_KEY: str
-    FERNET_KEY_NEW: Optional[str] = ""
+    FERNET_KEY: str = Field(default_factory=_gen_fernet_key)
+    FERNET_KEY_NEW: str = ""
 
     # Proxy Providers
     PROXY_PROVIDER: str = "brightdata"
@@ -96,11 +112,11 @@ class Settings(BaseSettings):
 
     # IMAP Custom Domain
     IMAP_ENABLED: bool = False
-    IMAP_HOST: str = ""
+    IMAP_HOST: str = "mail.example.com"
     IMAP_PORT: int = 993
     IMAP_USERNAME: str = ""
     IMAP_PASSWORD: str = ""
-    IMAP_DOMAIN: str = ""
+    IMAP_DOMAIN: str = "example.com"
 
     # SMS Providers
     SMS_PROVIDER: str = "5sim"
@@ -114,11 +130,11 @@ class Settings(BaseSettings):
     # Discord
     DISCORD_REG_URL: str = "https://discord.com/register"
     DISCORD_VERIFY_URL: str = "https://discord.com/verify"
-    DISCORD_HCAPTCHA_SITEKEY: str = "4c672d35-0701-42b2-88c3-78380b0db560"
+    DISCORD_HCAPTCHA_SITEKEY: str = ""
 
     # Gmail
     GMAIL_REG_URL: str = "https://accounts.google.com/signup"
-    GMAIL_RECAPTCHA_SITEKEY: str = "6LfwuyUTAAAAAOAmoS0fdqijC2PbbdH4kjq62Y1b"
+    GMAIL_RECAPTCHA_SITEKEY: str = ""
 
     # Browser
     BROWSER_HEADLESS: bool = True
@@ -159,15 +175,32 @@ class Settings(BaseSettings):
 
     @property
     def fernet_key_bytes(self) -> bytes:
-        import base64
-        return base64.urlsafe_b64decode(self.FERNET_KEY)
+        try:
+            decoded = base64.urlsafe_b64decode(self.FERNET_KEY)
+        except Exception as exc:
+            raise ValueError("FERNET_KEY must be valid urlsafe base64") from exc
+        if len(decoded) != 32:
+            raise ValueError("FERNET_KEY must decode to exactly 32 bytes")
+        return self.FERNET_KEY.encode()
 
     @property
     def fernet_key_new_bytes(self) -> Optional[bytes]:
-        if self.FERNET_KEY_NEW:
-            import base64
-            return base64.urlsafe_b64decode(self.FERNET_KEY_NEW)
-        return None
+        if not self.FERNET_KEY_NEW:
+            return None
+        try:
+            decoded = base64.urlsafe_b64decode(self.FERNET_KEY_NEW)
+        except Exception as exc:
+            raise ValueError("FERNET_KEY_NEW must be valid urlsafe base64") from exc
+        if len(decoded) != 32:
+            raise ValueError("FERNET_KEY_NEW must decode to exactly 32 bytes")
+        return self.FERNET_KEY_NEW.encode()
+
+    @property
+    def cors_allow_origins(self) -> list[str]:
+        raw = (self.CORS_ALLOW_ORIGINS or "").strip()
+        if not raw or raw == "*":
+            return ["*"]
+        return [x.strip() for x in raw.split(",") if x.strip()]
 
 
 settings = Settings()

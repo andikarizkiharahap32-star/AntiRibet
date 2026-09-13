@@ -3,10 +3,9 @@ Authentication API endpoints
 Handles login, logout, token refresh, and session management
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 
 from app.core.database import get_db
@@ -205,6 +204,11 @@ async def refresh_token(
             settings.JWT_SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM]
         )
+        if payload.get("type") != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
         user_id: str = payload.get("sub")
         if user_id is None:
             raise HTTPException(
@@ -216,7 +220,7 @@ async def refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token"
         )
-    
+
     # Get user
     result = await db.execute(
         select(User).where(User.id == user_id)

@@ -1,7 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
-from decimal import Decimal
 import uuid
 from enum import Enum
 
@@ -21,13 +20,26 @@ class JobCreate(BaseModel):
     sms_provider: Optional[str] = Field("5sim", max_length=50)
     captcha_provider: Optional[str] = Field("2captcha", max_length=50)
 
+    @property
+    def type(self) -> str:
+        return self.platform
+
+
+class JobUpdate(BaseModel):
+    status: Optional[str] = None
+    success_count: Optional[int] = None
+    failed_count: Optional[int] = None
+    cancelled_count: Optional[int] = None
+    last_successful_index: Optional[int] = None
+    finished_at: Optional[datetime] = None
+
 
 class JobResponse(BaseModel):
     id: uuid.UUID
     status: str
     total_count: int
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -58,3 +70,13 @@ class JobListResponse(BaseModel):
     total: int
     page: int
     limit: int
+
+
+class JobStats(BaseModel):
+    total_jobs: int = 0
+    running_jobs: int = 0
+    completed_jobs: int = 0
+    failed_jobs: int = 0
+    total_accounts_created: int = 0
+    discord_success_rate: float = 0.0
+    gmail_success_rate: float = 0.0

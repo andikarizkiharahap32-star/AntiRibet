@@ -266,11 +266,11 @@ async def _cleanup_old_logs_async():
 # Celery beat schedule for periodic tasks
 celery_app.conf.beat_schedule = {
     'health-check-proxies': {
-        'task': 'app.workers.tasks.health_check_proxies_task',
+        'task': 'app.workers.task_defs.health_check_proxies_task',
         'schedule': 300.0,  # 5 minutes
     },
     'cleanup-old-logs': {
-        'task': 'app.workers.tasks.cleanup_old_logs_task',
+        'task': 'app.workers.task_defs.cleanup_old_logs_task',
         'schedule': 86400.0,  # 24 hours
     },
 }
